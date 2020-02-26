@@ -2,8 +2,9 @@
 #include <LiquidCrystal_I2C.h>
 #include <SPI.h>
 #include <SD.h>
-#include <Stepper.h>
 #include "RTClib.h"
+#include <Arduino.h>
+#include "BasicStepperDriver.h"
 RTC_DS1307 rtc;
 
 File dataFile;
@@ -18,12 +19,16 @@ float R1 = 14930;
 float R2 = 982;
 int AmountOfCogs = 40;
 
-const int stepsPerRevolution = 200;
-Stepper myStepper(stepsPerRevolution, 6, 7, 8, 9);
-int stepCount = 0;
+#define MOTOR_STEPS 200
+#define RPM 120
+#define MICROSTEPS 1
+#define DIR 8
+#define STEP 9
+BasicStepperDriver stepper(MOTOR_STEPS, DIR, STEP);
+
 
 double CountedCogs = 0;
-int RPM = 0;
+int RotationSpeed = 0;
 double Current = 0;
 float Vout = 0.0;
 float Vin = 0.0;
@@ -58,6 +63,8 @@ void setup() {
    lcd.backlight();
      
    PrintHeadersToSD();
+   
+   stepper.begin(RPM, MICROSTEPS);
 }
 
 void loop() {
@@ -72,10 +79,11 @@ void loop() {
   Vout = (analogRead(VoltageSensor) * 5) / 1024.0;
   Vin = Vout / (R2/(R1+R2));
 
-  RPM = CountedCogs / AmountOfCogs * 60;
+  RotationSpeed = CountedCogs / AmountOfCogs * 60;
 
   PrintDataToLCD();
   PrintDataToSD();
+  Lift_Brake();
   
   if(now.second()!= Seconds){
     CountedCogs = 0;
@@ -151,17 +159,10 @@ void PrintDataToSD()
     }
   }
 
-void Brake()
+void Lift_Brake()
   {
-    // read the sensor value:
-    int sensorReading = analogRead(A0);
-    // map it to a range from 0 to 100:
-    int motorSpeed = map(sensorReading, 0, 1023, 0, 100);
-    // set the motor speed:
-    if (motorSpeed > 0) 
-    {
-      myStepper.setSpeed(motorSpeed);
-      // step 1/100 of a revolution:
-      myStepper.step(stepsPerRevolution / 100);
-    }
+   stepper.rotate(70);
+   delay(5000);
+   stepper.rotate(-70);
+
   }
