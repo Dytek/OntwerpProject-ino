@@ -19,6 +19,7 @@ const int AmountOfCogs = 40;
 
 const int driverPUL = 3;
 const int driverDIR = 5;
+bool SetDIR = LOW;
 
 const int BrakeButton = 6;
 const int MaxSteps = 550;
@@ -36,7 +37,6 @@ DateTime now;
 String FileName;
 
 void setup() {
-   Serial.begin(9600);
    now = rtc.now();
    FileName = String(now.month())+ String(now.day())+String(now.hour())+".csv";
    
@@ -66,8 +66,10 @@ void setup() {
      
    PrintHeadersToSD(); 
    
-   //Brake_OFF();    //Lift the normally closed brake to start turning
-}
+   if(BrakeButton == HIGH){
+    SetDIR = HIGH;
+   }
+  }
 
 void loop() {
  now = rtc.now();   //start the realtime clock
@@ -176,7 +178,7 @@ void BrakeLogic()  //when to brake
 
 void Brake_ON(){
   while(CurrentStep < MaxSteps){    //Turn on the brake
-    digitalWrite(driverDIR,LOW);
+    digitalWrite(driverDIR,SetDIR);
     digitalWrite(driverPUL,HIGH);
     delayMicroseconds(Pulse);
     digitalWrite(driverPUL,LOW);
@@ -187,7 +189,7 @@ void Brake_ON(){
 
 void Brake_OFF(){                   //Turn off the brake
   while(CurrentStep > 0){
-    digitalWrite(driverDIR,HIGH);
+    digitalWrite(driverDIR,!SetDIR);
     digitalWrite(driverPUL,HIGH);
     delayMicroseconds(Pulse);
     digitalWrite(driverPUL,LOW);
