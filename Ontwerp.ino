@@ -3,8 +3,6 @@
 #include <SPI.h>
 #include <SD.h>
 #include "RTClib.h"
-#include <Arduino.h>
-#include "BasicStepperDriver.h"
 RTC_DS1307 rtc;
 
 File dataFile;
@@ -12,20 +10,20 @@ LiquidCrystal_I2C lcd(0x27, 16, 2);
 
 const int SDcardpin = 10;
 const byte interruptPin = 2;
-int CurrentSensor = A0;
-int VoltageSensor = A1;
+const int CurrentSensor = A0;
+const int VoltageSensor = A1;
 
 float R1 = 14930;
 float R2 = 982;
-int AmountOfCogs = 40;
+const int AmountOfCogs = 40;
 
-#define MOTOR_STEPS 200
-#define RPM 120
-#define MICROSTEPS 1
-#define DIR 8
-#define STEP 9
-BasicStepperDriver stepper(MOTOR_STEPS, DIR, STEP);
+const int driverPUL = 3;
+const int driverDIR = 5;
 
+const int BrakeButton = 6;
+const int MaxSteps = 550;
+const int Pulse = 500;
+int CurrentStep = MaxSteps;
 
 double CountedCogs = 0;
 int RotationSpeed = 0;
@@ -38,6 +36,7 @@ DateTime now;
 String FileName;
 
 void setup() {
+   Serial.begin(9600);
    now = rtc.now();
    FileName = String(now.month())+ String(now.day())+String(now.hour())+".csv";
    
@@ -56,19 +55,25 @@ void setup() {
   
    pinMode(CurrentSensor, INPUT);   
    pinMode(interruptPin, INPUT_PULLUP);
+   pinMode(BrakeButton, INPUT);  
+   pinMode (driverPUL, OUTPUT);
+   pinMode (driverDIR, OUTPUT);
    
    attachInterrupt(digitalPinToInterrupt(interruptPin),CountTheCogs, FALLING);
    
    lcd.init();
    lcd.backlight();
      
-   PrintHeadersToSD();
+   PrintHeadersToSD(); 
    
-   stepper.begin(RPM, MICROSTEPS);
+   //Brake_OFF();    //Lift the normally closed brake to start turning
 }
 
 void loop() {
- now = rtc.now();
+ now = rtc.now();   //start the realtime clock
+
+ BrakeLogic();      //enable the braking logic. When to brake when not to.
+ 
  Current = .0264 * analogRead(CurrentSensor) -13.52;
 
  if( Current < 0 )
@@ -83,7 +88,6 @@ void loop() {
 
   PrintDataToLCD();
   PrintDataToSD();
-  Lift_Brake();
   
   if(now.second()!= Seconds){
     CountedCogs = 0;
@@ -128,11 +132,11 @@ void PrintDataToLCD()
     lcd.print(Vin);
     lcd.setCursor(0,1);
     lcd.print("R:");  
-    lcd.print(RPM);
+    lcd.print(RotationSpeed);
     lcd.setCursor(6,1);
+    lcd.print(now.day(), DEC);
+    lcd.print('/'); 
     lcd.print(now.month(), DEC);
-    lcd.print('/');
-    lcd.print(now.day(), DEC); 
     lcd.print(" ");
     lcd.print(now.hour());
     lcd.print(now.minute());
@@ -150,7 +154,7 @@ void PrintDataToSD()
       dataFile.print(now.minute(), DEC);
       dataFile.print(now.second(), DEC);
       dataFile.print(",");
-      dataFile.print(RPM);
+      dataFile.print(RotationSpeed);
       dataFile.print(",");
       dataFile.print(Vin);
       dataFile.print(",");
@@ -159,10 +163,35 @@ void PrintDataToSD()
     }
   }
 
-void Lift_Brake()
+void BrakeLogic()  //when to brake
   {
-   stepper.rotate(70);
-   delay(5000);
-   stepper.rotate(-70);
-
+    if((digitalRead(BrakeButton) == HIGH) || (RotationSpeed >= 2000)){                           //if BrakeButton is pressed or speed is exessive: start braking
+      Brake_ON();
+    }
+    
+    if((digitalRead(BrakeButton) == LOW) && (RotationSpeed < 2000)){                            //if Brakebutton is not pressed, and  speed is not exessive: stop braking
+      Brake_OFF();
+    }
   }
+
+void Brake_ON(){
+  while(CurrentStep < MaxSteps){    //Turn on the brake
+    digitalWrite(driverDIR,LOW);
+    digitalWrite(driverPUL,HIGH);
+    delayMicroseconds(Pulse);
+    digitalWrite(driverPUL,LOW);
+    delayMicroseconds(Pulse);
+    CurrentStep++;
+    }
+}
+
+void Brake_OFF(){                   //Turn off the brake
+  while(CurrentStep > 0){
+    digitalWrite(driverDIR,HIGH);
+    digitalWrite(driverPUL,HIGH);
+    delayMicroseconds(Pulse);
+    digitalWrite(driverPUL,LOW);
+    delayMicroseconds(Pulse);
+    CurrentStep--;
+  }
+}
