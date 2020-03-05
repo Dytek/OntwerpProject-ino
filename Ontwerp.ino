@@ -68,8 +68,8 @@ void setup() {
      
    PrintHeadersToSD(); 
    
-   if(BrakeButton == HIGH){
-    SetDIR = !SetDIR;
+   if(BrakeButton == HIGH){                 // first time you pull the switch always start breaking, 
+    SetDIR = !SetDIR;                       // independent of starting switch postion
    }
   }
 
@@ -80,34 +80,32 @@ void loop() {
 
  BrakeLogic();      //enable the braking logic. When to brake when not to.
  
- Current = .0264 * analogRead(CurrentSensor) -13.52;
+ Current = .0264 * analogRead(CurrentSensor) -13.52;    //Current sensor error correction
 
- if( Current < 0 )
+ if( abs(Current) < 0.2 )       //Should be removed after fixing interferrence of AC signal            
    {
-    Current *= -1;
+    Current = 0;
    }
    
-  Vout = (analogRead(VoltageSensor) * 5) / 1024.0;
+  Vout = (analogRead(VoltageSensor) * 5) / 1024.0;      //Voltage sensor and voltage divider calculations
   Vin = Vout / (R2/(R1+R2));
 
-  RPM = CountedCogs / AmountOfCogs * 60;
-
-  PrintDataToLCD();
+  PrintDataToLCD();               //print out everything we need
   PrintDataToSD();
-  
-  if(now.second()!= Seconds){
-    CountedCogs = 0;
-    Seconds = now.second();
-  }
-  
-  delay(500);
 }
 
-////////////////////////////////////////////INTERPUT FUNCTIONS/////////////////////////////////////////////////////////
+////////////////////////////////////////////INTERPUT FUNCTION/////////////////////////////////////////////////////////
 
 void CountTheCogs()
   {
     CountedCogs++;  //Keeps track of speed
+
+    RPM = CountedCogs / AmountOfCogs * 60;
+    
+    if(now.second()!= Seconds){
+    CountedCogs = 0;
+    Seconds = now.second();
+    }
   }
   
 ////////////////////////////////////////////BRAKE FUNCTIONS/////////////////////////////////////////////////////////
