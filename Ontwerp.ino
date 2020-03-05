@@ -13,13 +13,13 @@ const byte interruptPin = 2;
 const int CurrentSensor = A0;
 const int VoltageSensor = A1;
 
-float R1 = 14930;
-float R2 = 982;
+const float R1 = 14930;
+const float R2 = 982;
 const int AmountOfCogs = 40;
 
 const int driverPUL = 3;
 const int driverDIR = 5;
-bool SetDIR = LOW;
+bool SetDIR = LOW;         //////////////////////////////// If wrong Direction, change this.
 
 const int BrakeButton = 6;
 const int MaxSteps = 550;
@@ -27,7 +27,7 @@ const int Pulse = 500;
 int CurrentStep = MaxSteps;
 
 double CountedCogs = 0;
-int RotationSpeed = 0;
+int RPM = 0;
 double Current = 0;
 float Vout = 0.0;
 float Vin = 0.0;
@@ -35,6 +35,8 @@ double Seconds;
 
 DateTime now;
 String FileName;
+
+////////////////////////////////////////////SETUP FUNCTION/////////////////////////////////////////////////////////
 
 void setup() {
    now = rtc.now();
@@ -67,9 +69,11 @@ void setup() {
    PrintHeadersToSD(); 
    
    if(BrakeButton == HIGH){
-    SetDIR = HIGH;
+    SetDIR = !SetDIR;
    }
   }
+
+////////////////////////////////////////////MAIN LOOP FUNCTION/////////////////////////////////////////////////////////
 
 void loop() {
  now = rtc.now();   //start the realtime clock
@@ -86,7 +90,7 @@ void loop() {
   Vout = (analogRead(VoltageSensor) * 5) / 1024.0;
   Vin = Vout / (R2/(R1+R2));
 
-  RotationSpeed = CountedCogs / AmountOfCogs * 60;
+  RPM = CountedCogs / AmountOfCogs * 60;
 
   PrintDataToLCD();
   PrintDataToSD();
@@ -99,10 +103,49 @@ void loop() {
   delay(500);
 }
 
+////////////////////////////////////////////INTERPUT FUNCTIONS/////////////////////////////////////////////////////////
+
 void CountTheCogs()
   {
-    CountedCogs++;  
+    CountedCogs++;  //Keeps track of speed
   }
+  
+////////////////////////////////////////////BRAKE FUNCTIONS/////////////////////////////////////////////////////////
+
+void BrakeLogic()  //when to brake
+  {
+    if((digitalRead(BrakeButton) == HIGH) || (RPM >= 2000)){                           //if BrakeButton is pressed or speed is exessive: start braking
+      Brake_ON();
+    }
+    
+    if((digitalRead(BrakeButton) == LOW) && (RPM < 2000)){                            //if Brakebutton is not pressed, and  speed is not exessive: stop braking
+      Brake_OFF();
+    }
+  }
+
+void Brake_ON(){
+  while(CurrentStep < MaxSteps){    
+    digitalWrite(driverDIR,SetDIR);
+    digitalWrite(driverPUL,HIGH);
+    delayMicroseconds(Pulse);
+    digitalWrite(driverPUL,LOW);
+    delayMicroseconds(Pulse);
+    CurrentStep++;
+    }
+}
+
+void Brake_OFF(){                   
+  while(CurrentStep > 0){
+    digitalWrite(driverDIR,!SetDIR);
+    digitalWrite(driverPUL,HIGH);
+    delayMicroseconds(Pulse);
+    digitalWrite(driverPUL,LOW);
+    delayMicroseconds(Pulse);
+    CurrentStep--;
+  }
+}
+
+////////////////////////////////////////////BORING PRINT FUNCTIONS/////////////////////////////////////////////////////////
 
 void PrintHeadersToSD()
   {   
@@ -122,7 +165,7 @@ void PrintHeadersToSD()
        }
     }
   }
-  
+
 void PrintDataToLCD()
   {
     String dataString = "";
@@ -134,7 +177,7 @@ void PrintDataToLCD()
     lcd.print(Vin);
     lcd.setCursor(0,1);
     lcd.print("R:");  
-    lcd.print(RotationSpeed);
+    lcd.print(RPM);
     lcd.setCursor(6,1);
     lcd.print(now.day(), DEC);
     lcd.print('/'); 
@@ -156,7 +199,7 @@ void PrintDataToSD()
       dataFile.print(now.minute(), DEC);
       dataFile.print(now.second(), DEC);
       dataFile.print(",");
-      dataFile.print(RotationSpeed);
+      dataFile.print(RPM);
       dataFile.print(",");
       dataFile.print(Vin);
       dataFile.print(",");
@@ -164,36 +207,3 @@ void PrintDataToSD()
       dataFile.close();
     }
   }
-
-void BrakeLogic()  //when to brake
-  {
-    if((digitalRead(BrakeButton) == HIGH) || (RotationSpeed >= 2000)){                           //if BrakeButton is pressed or speed is exessive: start braking
-      Brake_ON();
-    }
-    
-    if((digitalRead(BrakeButton) == LOW) && (RotationSpeed < 2000)){                            //if Brakebutton is not pressed, and  speed is not exessive: stop braking
-      Brake_OFF();
-    }
-  }
-
-void Brake_ON(){
-  while(CurrentStep < MaxSteps){    //Turn on the brake
-    digitalWrite(driverDIR,SetDIR);
-    digitalWrite(driverPUL,HIGH);
-    delayMicroseconds(Pulse);
-    digitalWrite(driverPUL,LOW);
-    delayMicroseconds(Pulse);
-    CurrentStep++;
-    }
-}
-
-void Brake_OFF(){                   //Turn off the brake
-  while(CurrentStep > 0){
-    digitalWrite(driverDIR,!SetDIR);
-    digitalWrite(driverPUL,HIGH);
-    delayMicroseconds(Pulse);
-    digitalWrite(driverPUL,LOW);
-    delayMicroseconds(Pulse);
-    CurrentStep--;
-  }
-}
