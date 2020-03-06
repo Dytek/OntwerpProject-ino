@@ -19,11 +19,11 @@ const int AmountOfCogs = 40;
 
 const int driverPUL = 3;
 const int driverDIR = 5;
-bool SetDIR = LOW;         //////////////////////////////// If wrong Direction, change this.
+bool SetDIR = LOW;         //////////////////////////////// If brake turning in wrong direction, change this.
 
 const int BrakeButton = 6;
-const int MaxSteps = 550;
-const int Pulse = 500;
+const int MaxSteps = 500; //////////////////////////////// If motor isn't pulling far enough increase number. If motor is slipping decrease.
+const int Pulse = 500;  ////////////////////////////////// If motor is too slow increase number. If motor is too fast decrease.
 int CurrentStep = MaxSteps;
 
 double CountedCogs = 0;
@@ -68,8 +68,9 @@ void setup() {
      
    PrintHeadersToSD(); 
    
-   if(BrakeButton == HIGH){                 // first time you pull the switch always start breaking, 
+   if(BrakeButton == LOW){                 // first time you pull the switch always start braking, 
     SetDIR = !SetDIR;                       // independent of starting switch postion
+    CurrentStep = 0;
    }
   }
 
@@ -82,7 +83,7 @@ void loop() {
  
  Current = .0264 * analogRead(CurrentSensor) -13.52;    //Current sensor error correction
 
- if( abs(Current) < 0.2 )       //Should be removed after fixing interferrence of AC signal            
+ if( abs(Current) < 0.40 )       //Should be removed after fixing interferrence of AC signal            
    {
     Current = 0;
    }
@@ -92,6 +93,8 @@ void loop() {
 
   PrintDataToLCD();               //print out everything we need
   PrintDataToSD();
+
+  delay(500);
 }
 
 ////////////////////////////////////////////INTERPUT FUNCTION/////////////////////////////////////////////////////////
@@ -100,7 +103,7 @@ void CountTheCogs()
   {
     CountedCogs++;  //Keeps track of speed
 
-    RPM = CountedCogs / AmountOfCogs * 60;
+    RPM = (CountedCogs / AmountOfCogs) * 60;
     
     if(now.second()!= Seconds){
     CountedCogs = 0;
